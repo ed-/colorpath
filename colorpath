@@ -1,0 +1,67 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import os
+
+def hex_to_rgb(h):
+    if h.startswith('#'):
+        if len(h) == 4:  # #RGB shorthand
+            r, g, b = h[1], h[2], h[3]
+            return int(r, 16) * 17, int(g, 16) * 17, int(b, 16) * 17
+        elif len(h) == 7: # #RRGGBB
+            r, g, b = h[1:3], h[3:5], h[5:7]
+            return int(r, 16), int(g, 16), int(b, 16)
+        else:
+            raise ValueError("Use #RGB or #RRGGBB form.")
+    raise ValueError("Use #RGB or #RRGGBB form.")
+
+def rgb_to_ansi_color((r, g, b)):
+    r, g, b = tuple(int(round(x / 51.0)) for x in (r, g, b))
+    return (16 + (36 * r) + (6 * g) + b)
+
+def colorize(text, rgb):
+    _ESC = chr(27)
+    _FG = _ESC + '[38;5;%im'
+    _FG = '' if rgb is None else _FG % rgb_to_ansi_color(rgb)
+    _NORMAL = _ESC + "[0m"
+    return "%s%s%s" % (_FG, text, _NORMAL)
+    
+def bresenham(start, end, count):
+    if count < 3:
+        return [start, end]
+    delta = float(end - start) / (count - 1)
+    error = 0.0
+    vector = [start]
+    for i in range(count - 1):
+        n = vector[-1] + delta
+        n, error = int(n), error + (n - int(n))
+        if error >= 0.5:
+            n, error = n + 1, error - 1
+        vector.append(n)
+    return vector
+
+def generate_gradient(startcolor, endcolor, count):
+    sR, sG, sB = startcolor
+    eR, eG, eB = endcolor
+    vR, vG, vB = bresenham(sR, eR, count), bresenham(sG, eG, count), bresenham(sB, eB, count)
+    return zip(vR, vG, vB)
+
+def colorpath(startcolor, endcolor):
+    cwd = filter(None, os.getcwd().split('/'))
+    gradient = generate_gradient(startcolor, endcolor, len(cwd))
+    coloredpath = zip(cwd, gradient)
+    coloredpath = [colorize(subd, color) for (subd, color) in coloredpath]
+    return '/'.join([''] + coloredpath)
+
+if __name__ == '__main__':
+    startcolor = (255, 0, 0)
+    try:
+        startcolor = hex_to_rgb(os.environ.get('PS1_COLOR1', ''))
+    except ValueError:
+        pass
+    endcolor = (0, 128, 255)
+    try:
+        endcolor = hex_to_rgb(os.environ.get('PS1_COLOR2', ''))
+    except ValueError:
+        pass
+    print(colorpath(startcolor, endcolor))
